@@ -1,4 +1,6 @@
 import RPi.GPIO as GPIO
+from threading import Thread, Lock
+from time import sleep
 from spimaster import SPIMaster
 
 class MCP23S17(SPIMaster):
@@ -65,6 +67,7 @@ class Port():
         self.INTCAP = port_address + 8
         self.GPIO = port_address + 9
         self.OLAT = port_address + 10
+        self.port_value = 0;
 
     def set_out(self):
         self.drive.write_data(0, self.IODIR)
@@ -72,6 +75,11 @@ class Port():
     def invert_polarity(self):
         current_polarity = self.drive.read_data(self.IPOL)
         self.drive.write_data(255^current_polarity, self.IPOL)
+
+    def set_int(self, value):
+        self.drive.write_data(255, self.GPINTEN)
+        self.drive.write_data(value, self.DEFVAL)
+        self.drive.write_data(255, self.INTCON)
 
     def set_input(self, pull_up = True):
         self.drive.write_data(255, self.IODIR)
@@ -83,5 +91,13 @@ class Port():
     def read(self):
         return self.drive.read_data(self.GPIO)
 
+    def read_async(self, mutex):
+        with mutex:
+            self.port_value = self.drive.read_data(self.GPIO)
+
     def write(self, data):
         self.drive.write_data(data, self.GPIO)
+
+    def write_async(self, data, mutex):
+        with mutex:
+            self.drive.write_data(data, self.GPIO)
